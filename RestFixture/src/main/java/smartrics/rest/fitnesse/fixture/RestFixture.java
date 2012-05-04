@@ -166,6 +166,8 @@ public class RestFixture extends ActionFixture {
 
 	private long timer = 0l;
 
+	private final long defaultGetInterval = 100;
+
 	/**
 	 * the headers passed to each request by default.
 	 */
@@ -384,6 +386,61 @@ public class RestFixture extends ActionFixture {
 	public void GET() {
 		debugMethodCallStart();
 		doMethod("Get");
+		debugMethodCallEnd();
+	}
+
+	/**
+	 * <code> | GETCHECK | uri | ?ret | ?headers | ?body | expKey| timeout(ms)| interval(ms) | </code>
+	 * 
+	 * @throws InterruptedException
+	 */
+	public void GETCHECK() throws InterruptedException {
+		debugMethodCallStart();
+		String expectedKey = resolve(FIND_VARS_PATTERN,
+				cells.more.more.more.more.more.text().trim());
+		String timeoutStr = cells.more.more.more.more.more.more.text().trim();
+		String intervalStr = (cells.size() >= 8) ? cells.more.more.more.more.more.more.more
+				.text().trim() : "";
+		long timeout = "".equals(timeoutStr) ? 0 : Long.valueOf(timeoutStr);
+		long interval = "".equals(intervalStr) ? defaultGetInterval : Long
+				.valueOf(intervalStr);
+		long max = System.currentTimeMillis() + timeout;
+		int count = 0;
+		do {
+			count++;
+			doMethodOnly(null, "Get");
+			if (interval > 0) {
+				Thread.sleep(interval);
+			}
+		} while (!checkExpectedKey(expectedKey)
+				&& System.currentTimeMillis() < max);
+
+		// Process GET cells
+		ContentType assertBodyAsContentType = null;
+		try {
+			String assertBodyAsContentTypeString = resolve(FIND_VARS_PATTERN,
+					cells.more.more.more.more.more.text());
+			if (assertBodyAsContentTypeString != null
+					&& !assertBodyAsContentTypeString.equals(""))
+				assertBodyAsContentType = ContentType
+						.parse(assertBodyAsContentTypeString);
+		} catch (NullPointerException e) {
+		}
+		completeHttpMethodExecution(assertBodyAsContentType);
+
+		// Process CHECK cells
+		if (!checkExpectedKey(expectedKey))
+			wrong(cells.more.more.more.more.more);
+		else
+			right(cells.more.more.more.more.more);
+		cells.more.more.more.more.more
+				.addToBody("<hr>GET " + count + " times.");
+		if ("".equals(timeoutStr))
+			cells.more.more.more.more.more.more.addToBody(gray("0"));
+		if ("".equals(intervalStr) && cells.size() >= 8)
+			cells.more.more.more.more.more.more.more.addToBody(gray(String
+					.valueOf(defaultGetInterval)));
+
 		debugMethodCallEnd();
 	}
 
@@ -722,6 +779,32 @@ public class RestFixture extends ActionFixture {
 		completeHttpMethodExecution(assertBodyAsContentType);
 	}
 
+	private void doMethodOnly(String body, String method) {
+		String resUrl = resolve(FIND_VARS_PATTERN, cells.more.text());
+
+		setLastRequest(new RestRequest());
+		getLastRequest().setMethod(RestRequest.Method.valueOf(method));
+		getLastRequest().setFileName(fileName);
+		getLastRequest().setMultipartFileName(multipartFileName);
+
+		if (multipartContentType != null)
+			getLastRequest().setMultipartContentType(multipartContentType);
+
+		getLastRequest().setMultipartFileParameterName(
+				multipartFileParameterName);
+		getLastRequest().addHeaders(getHeaders());
+		String uri[] = resUrl.split("\\?");
+		getLastRequest().setResource(uri[0]);
+		if (uri.length == 2) {
+			getLastRequest().setQuery(uri[1]);
+		}
+		if ("Post".equals(method) || "Put".equals(method)) {
+			String rBody = resolve(FIND_VARS_PATTERN, body);
+			getLastRequest().setBody(rBody);
+		}
+		setLastResponse(restClient.execute(getLastRequest()));
+	}
+
 	private ContentType getContentTypeOfLastResponse() {
 		return ContentType.parse(getLastResponse().getHeader("Content-Type"));
 	}
@@ -855,5 +938,16 @@ public class RestFixture extends ActionFixture {
 	private Map<String, String> parseHeaders(String str) {
 		return Tools.convertStringToMap(str, ":", System
 				.getProperty("line.separator"));
+	}
+
+	private boolean checkExpectedKey(String expectedKey) {
+		if ("".equals(expectedKey))
+				return true;
+		Object actual = getLastResponse().getBody();
+		if (actual != null) {
+			String actualStr = actual.toString();
+			return actualStr.contains(expectedKey);
+		}
+		return false;
 	}
 }

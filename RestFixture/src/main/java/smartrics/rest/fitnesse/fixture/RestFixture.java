@@ -83,14 +83,14 @@ import fit.exception.FitFailureException;
  * written in wiki syntax.
  * <li>tests should be easy to write and above all read.
  * </ul>
- *
+ * 
  * <b>Configuring RestFixture</b><br/>
  * RestFixture can be configured by using the {@link RestFixtureConfig}. A
  * {@code RestFixtureConfig} can define named maps with configuration key/value
- * pairs. The name of the map is passed as second parameter to the {@code
- * RestFixture}. Using a named configuration is optional: if no name is passed,
- * the default configuration map is used. See {@link RestFixtureConfig} for more
- * details.
+ * pairs. The name of the map is passed as second parameter to the
+ * {@code RestFixture}. Using a named configuration is optional: if no name is
+ * passed, the default configuration map is used. See {@link RestFixtureConfig}
+ * for more details.
  * <p/>
  * The following list of configuration parameters can be used.
  * <p/>
@@ -133,7 +133,7 @@ import fit.exception.FitFailureException;
  * {@link RestFixture#setHeader()} will override this value. </i></td>
  * </tr>
  * </table>
- *
+ * 
  * @author fabrizio
  */
 public class RestFixture extends ActionFixture {
@@ -166,7 +166,7 @@ public class RestFixture extends ActionFixture {
 
 	private long timer = 0l;
 
-	private final long defaultGetInterval = 100;
+	private final long defaultGetInterval = 500;
 
 	/**
 	 * the headers passed to each request by default.
@@ -192,7 +192,7 @@ public class RestFixture extends ActionFixture {
 	/**
 	 * The value of the flag controlling the display of the actual header or
 	 * body in the cell containing the expectations.
-	 *
+	 * 
 	 * @return true if the actual value of the headers or body is displayed when
 	 *         expectation is true
 	 */
@@ -250,7 +250,7 @@ public class RestFixture extends ActionFixture {
 	/**
 	 * Overrideable method to validate the state of the instance in execution. A
 	 * {@link RestFixture} is valid if the baseUrl is not null.
-	 *
+	 * 
 	 * @return true if the state is valid, false otherwise
 	 */
 	protected boolean validateState() {
@@ -261,7 +261,7 @@ public class RestFixture extends ActionFixture {
 	 * Method invoked to notify that the state of the RestFixture is invalid. It
 	 * throws a {@link FitFailureException} with a message displayed in the
 	 * fitnesse page.
-	 *
+	 * 
 	 * @param state
 	 *            as returned by {@link RestFixture#validateState()}
 	 */
@@ -316,8 +316,8 @@ public class RestFixture extends ActionFixture {
 
 	/**
 	 * <code>| setMultipartFileParameterName | Name of form parameter for the uploaded file |</code>
-	 * <p/> body text should be the name of the form parameter, defaults to
-	 * 'file'
+	 * <p/>
+	 * body text should be the name of the form parameter, defaults to 'file'
 	 */
 	public void setMultipartFileParameterName() {
 		if (cells.more == null)
@@ -327,8 +327,10 @@ public class RestFixture extends ActionFixture {
 	}
 
 	/**
-	 * <code>| setBody | body text goes here |</code> <p/> body text can either
-	 * be a kvp or a xml. The <code>ClientHelper</code> will figure it out
+	 * <code>| setBody | body text goes here |</code>
+	 * <p/>
+	 * body text can either be a kvp or a xml. The <code>ClientHelper</code>
+	 * will figure it out
 	 */
 	public void setBody() {
 		if (cells.more == null)
@@ -355,10 +357,10 @@ public class RestFixture extends ActionFixture {
 	 * executes a PUT on the uri and checks the return (a string repr the
 	 * operation return code), the http response headers and the http response
 	 * body
-	 *
+	 * 
 	 * uri is resolved by replacing vars previously defined with
 	 * <code>let()</code>
-	 *
+	 * 
 	 * the http request headers can be set via <code>setHeaders()</code>. If not
 	 * set, the list of default headers will be set. See
 	 * <code>DEF_REQUEST_HEADERS</code>
@@ -375,10 +377,10 @@ public class RestFixture extends ActionFixture {
 	 * executes a GET on the uri and checks the return (a string repr the
 	 * operation return code), the http response headers and the http response
 	 * body
-	 *
+	 * 
 	 * uri is resolved by replacing vars previously defined with
 	 * <code>let()</code>
-	 *
+	 * 
 	 * the http request headers can be set via <code>setHeaders()</code>. If not
 	 * set, the list of default headers will be set. See
 	 * <code>DEF_REQUEST_HEADERS</code>
@@ -386,6 +388,67 @@ public class RestFixture extends ActionFixture {
 	public void GET() {
 		debugMethodCallStart();
 		doMethod("Get");
+		debugMethodCallEnd();
+	}
+
+	/**
+	 * <code> | GETS | uri | ?ret | ?headers | ?body | timeout(ms)| interval(ms) | </code>
+	 * 
+	 * @throws InterruptedException
+	 */
+	public void GETS() throws InterruptedException {
+		debugMethodCallStart();
+		String expectedStr = resolve(FIND_VARS_PATTERN,
+				cells.more.more.more.more.text());
+		String timeoutStr = cells.more.more.more.more.more.text().trim();
+		String intervalStr = (cells.size() >= 7) ? cells.more.more.more.more.more.more
+				.text().trim() : "";
+		ContentType assertBodyAsContentType = (cells.size() >= 8) ? getContentType(cells.more.more.more.more.more.more.more
+				.text()) : null;
+		long timeout = "".equals(timeoutStr) ? 0 : Long.valueOf(timeoutStr);
+		long interval = "".equals(intervalStr) ? defaultGetInterval : Long
+				.valueOf(intervalStr);
+		boolean success = false;
+		long max = System.currentTimeMillis() + timeout;
+		long lastGetTime = 0;
+		int count = 0;
+		do {
+			count++;
+			doMethodOnly(null, "Get");
+			lastGetTime = System.currentTimeMillis();
+			if (interval > 0) {
+				Thread.sleep(interval);
+			}
+			try {
+				success = checkExpected(expectedStr, getLastResponse()
+						.getBody(),
+						BodyTypeAdapterFactory.getBodyTypeAdapter(
+								getContentTypeOfLastResponse(),
+								assertBodyAsContentType));
+			} catch (Exception e) {
+				break;
+			}
+			if (success)
+				break;
+		} while (System.currentTimeMillis() < max);
+		long usedTime = timeout + lastGetTime - max;
+
+		// Process GET cells
+		completeHttpMethodExecution(assertBodyAsContentType);
+
+		// Process GETS cells
+		if (!success)
+			wrong(cells.more.more.more.more.more);
+		else
+			right(cells.more.more.more.more.more);
+		cells.more.more.more.more.more.addToBody("<hr>GET " + count + " times"
+				+ (!success ? "" : " in " + usedTime + " ms"));
+		if ("".equals(timeoutStr))
+			cells.more.more.more.more.more.addToBody(gray("0"));
+		if (cells.size() >= 7 && "".equals(intervalStr))
+			cells.more.more.more.more.more.more.addToBody(gray(String
+					.valueOf(defaultGetInterval)));
+
 		debugMethodCallEnd();
 	}
 
@@ -416,16 +479,8 @@ public class RestFixture extends ActionFixture {
 				&& System.currentTimeMillis() < max);
 
 		// Process GET cells
-		ContentType assertBodyAsContentType = null;
-		try {
-			String assertBodyAsContentTypeString = resolve(FIND_VARS_PATTERN,
-					cells.more.more.more.more.more.text());
-			if (assertBodyAsContentTypeString != null
-					&& !assertBodyAsContentTypeString.equals(""))
-				assertBodyAsContentType = ContentType
-						.parse(assertBodyAsContentTypeString);
-		} catch (NullPointerException e) {
-		}
+		ContentType assertBodyAsContentType = (cells.size() >= 9) ? getContentType(cells.more.more.more.more.more.more.more.more
+				.text()) : null;
 		completeHttpMethodExecution(assertBodyAsContentType);
 
 		// Process CHECK cells
@@ -450,10 +505,10 @@ public class RestFixture extends ActionFixture {
 	 * executes a DELETE on the uri and checks the return (a string repr the
 	 * operation return code), the http response headers and the http response
 	 * body
-	 *
+	 * 
 	 * uri is resolved by replacing vars previously defined with
 	 * <code>let()</code>
-	 *
+	 * 
 	 * the http request headers can be set via <code>setHeaders()</code>. If not
 	 * set, the list of default headers will be set. See
 	 * <code>DEF_REQUEST_HEADERS</code>
@@ -470,12 +525,12 @@ public class RestFixture extends ActionFixture {
 	 * executes a POST on the uri and checks the return (a string repr the
 	 * operation return code), the http response headers and the http response
 	 * body
-	 *
+	 * 
 	 * uri is resolved by replacing vars previously defined with
 	 * <code>let()</code>
-	 *
+	 * 
 	 * post requires a body that can be set via <code>setBody()</code>.
-	 *
+	 * 
 	 * the http request headers can be set via <code>setHeaders()</code>. If not
 	 * set, the list of default headers will be set. See
 	 * <code>DEF_REQUEST_HEADERS</code>
@@ -564,20 +619,20 @@ public class RestFixture extends ActionFixture {
 	 * body of the last successful http response.
 	 * <ul>
 	 * <li/><code>label</code> is the label identifier
-	 *
+	 * 
 	 * <li/><code>type</code> is the type of operation to perform on the last
 	 * http response. At the moment only XPaths and Regexes are supported. In
 	 * case of regular expressions, the expression must contain only one group
 	 * match, if multiple groups are matched the label will be assigned to the
 	 * first found <code>type</code> only allowed values are <code>xpath</code>
 	 * and <code>regex</code>
-	 *
+	 * 
 	 * <li/><code>loc</code> where to apply the <code>expr</code> of the given
 	 * <code>type</code>. Currently only <code>header</code> and
 	 * <code>body</code> are supported. If type is <code>xpath</code> by default
 	 * the expression is matched against the body and the value in loc is
 	 * ignored.
-	 *
+	 * 
 	 * <li/><code>expr</code> is the expression of type <code>type</code> to be
 	 * executed on the last http response to extract the content to be
 	 * associated to the label.
@@ -636,7 +691,7 @@ public class RestFixture extends ActionFixture {
 				}
 			}
 		} catch (IOException e) {
-			exception(cells.more.more.more, e);			
+			exception(cells.more.more.more, e);
 		} catch (RuntimeException e) {
 			exception(cells.more.more.more, e);
 		} finally {
@@ -650,8 +705,8 @@ public class RestFixture extends ActionFixture {
 		if ("header".equals(loc)) {
 			if (getLastResponse().getHeaders() != null) {
 				for (Header e : getLastResponse().getHeaders()) {
-					String string = Tools.convertEntryToString(e.getName(), e
-							.getValue(), ":");
+					String string = Tools.convertEntryToString(e.getName(),
+							e.getValue(), ":");
 					content.add(string);
 				}
 			}
@@ -691,7 +746,9 @@ public class RestFixture extends ActionFixture {
 	}
 
 	private String getLastResponseBodyAsXml() throws IOException {
-		if(getContentTypeOfLastResponse().equals(ContentType.JSON) || getContentTypeOfLastResponse().equals(ContentType.JSONX) || getContentTypeOfLastResponse().equals(ContentType.APPJSON))
+		if (getContentTypeOfLastResponse().equals(ContentType.JSON)
+				|| getContentTypeOfLastResponse().equals(ContentType.JSONX)
+				|| getContentTypeOfLastResponse().equals(ContentType.APPJSON))
 			return Tools.fromJSONtoXML(getLastResponse().getBody());
 
 		return getLastResponse().getBody();
@@ -699,11 +756,11 @@ public class RestFixture extends ActionFixture {
 
 	private String handleXPathAsNodeList(String expr) throws IOException {
 		NodeList list = Tools.extractXPath(expr, getLastResponseBodyAsXml());
-			Node item = list.item(0);
-			String val = null;
-			if (item != null) {
-				val = item.getTextContent();
-			}
+		Node item = list.item(0);
+		String val = null;
+		if (item != null) {
+			val = item.getTextContent();
+		}
 		return val;
 	}
 
@@ -749,9 +806,12 @@ public class RestFixture extends ActionFixture {
 
 		ContentType assertBodyAsContentType = null;
 		try {
-			String assertBodyAsContentTypeString = resolve(FIND_VARS_PATTERN, cells.more.more.more.more.more.text());
-			if(assertBodyAsContentTypeString != null && !assertBodyAsContentTypeString.equals(""))
-				assertBodyAsContentType = ContentType.parse(assertBodyAsContentTypeString);
+			String assertBodyAsContentTypeString = resolve(FIND_VARS_PATTERN,
+					cells.more.more.more.more.more.text());
+			if (assertBodyAsContentTypeString != null
+					&& !assertBodyAsContentTypeString.equals(""))
+				assertBodyAsContentType = ContentType
+						.parse(assertBodyAsContentTypeString);
 		} catch (NullPointerException e) {
 		}
 
@@ -759,8 +819,8 @@ public class RestFixture extends ActionFixture {
 		getLastRequest().setMethod(RestRequest.Method.valueOf(method));
 		getLastRequest().setFileName(fileName);
 		getLastRequest().setMultipartFileName(multipartFileName);
-		
-		if( multipartContentType != null )
+
+		if (multipartContentType != null)
 			getLastRequest().setMultipartContentType(multipartContentType);
 
 		getLastRequest().setMultipartFileParameterName(
@@ -837,7 +897,8 @@ public class RestFixture extends ActionFixture {
 		} else {
 			boolean success = false;
 			try {
-				String substitutedExpected = variables.substitute(expected.text());
+				String substitutedExpected = variables.substitute(expected
+						.text());
 				success = ta.equals(ta.parse(substitutedExpected), actual);
 			} catch (Exception e) {
 				exception(expected, e);
@@ -936,18 +997,45 @@ public class RestFixture extends ActionFixture {
 	}
 
 	private Map<String, String> parseHeaders(String str) {
-		return Tools.convertStringToMap(str, ":", System
-				.getProperty("line.separator"));
+		return Tools.convertStringToMap(str, ":",
+				System.getProperty("line.separator"));
 	}
 
 	private boolean checkExpectedKey(String expectedKey) {
 		if ("".equals(expectedKey))
-				return true;
+			return true;
 		Object actual = getLastResponse().getBody();
 		if (actual != null) {
 			String actualStr = actual.toString();
 			return actualStr.contains(expectedKey);
 		}
 		return false;
+	}
+
+	private boolean checkExpected(String expectedStr, Object actual,
+			RestDataTypeAdapter ta) throws Exception {
+		ta.set(actual);
+		boolean success = false;
+		boolean ignore = "".equals(expectedStr.trim());
+		if (ignore) {
+			success = true;
+		} else {
+			success = ta.equals(ta.parse(expectedStr), actual);
+		}
+		return success;
+	}
+
+	private ContentType getContentType(String contentTypeStr) {
+		ContentType assertBodyAsContentType = null;
+		try {
+			String assertBodyAsContentTypeString = resolve(FIND_VARS_PATTERN,
+					contentTypeStr);
+			if (assertBodyAsContentTypeString != null
+					&& !assertBodyAsContentTypeString.equals(""))
+				assertBodyAsContentType = ContentType
+						.parse(assertBodyAsContentTypeString);
+		} catch (NullPointerException e) {
+		}
+		return assertBodyAsContentType;
 	}
 }
